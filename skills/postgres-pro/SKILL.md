@@ -4,8 +4,8 @@ description: Use when designing PostgreSQL schemas, writing or reviewing migrati
 license: MIT
 metadata:
   author: https://github.com/Jeffallan (updated by curator)
-  version: "2.0.0"
-  baseline: "PostgreSQL 18 (19 GA expected 2026-11-19), pgvector 0.8, PgBouncer 1.26 (Oct 2026)"
+  version: "2.0.1"
+  baseline: "PostgreSQL 18.6 (examples also run on 19rc1; GA expected 2026-11-19), pgvector 0.8, PgBouncer 1.26, Prisma 7.10 (Oct 2026)"
   domain: infrastructure
   triggers: PostgreSQL, Postgres, Neon, Supabase, EXPLAIN ANALYZE, pg_stat_statements, index, migration, JSONB, pgvector, VACUUM, replication, PgBouncer
   related-skills: nestjs-expert
@@ -53,7 +53,7 @@ metadata:
 
 ```sql
 -- 1. Find what costs the most in total, not only the slowest single call
-SELECT queryid, calls, round(total_exec_time) AS total_ms, round(mean_exec_time, 1) AS mean_ms, rows, query
+SELECT queryid, calls, round(total_exec_time) AS total_ms, round(mean_exec_time::numeric, 1) AS mean_ms, rows, query
 FROM pg_stat_statements
 ORDER BY total_exec_time DESC
 LIMIT 10;

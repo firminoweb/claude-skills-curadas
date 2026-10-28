@@ -69,36 +69,47 @@ function RootStack() {
 
 ## Tabs
 
+Native tabs (the platform tab bar) are the SDK 58 template default:
+
 ```tsx
 // src/app/(tabs)/_layout.tsx
-import { Tabs } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import { NativeTabs } from 'expo-router/native-tabs'
 
 export default function TabsLayout() {
   return (
-    <Tabs>
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} /> }} />
-      <Tabs.Screen name="orders" options={{ title: 'Orders', tabBarIcon: ({ color, size }) => <Ionicons name="list" color={color} size={size} /> }} />
-    </Tabs>
+    <NativeTabs>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="house.fill" md="home" />  {/* SF Symbol on iOS, Material Symbol on Android */}
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="orders">
+        <NativeTabs.Trigger.Label>Orders</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="list.bullet" md="list" />
+      </NativeTabs.Trigger>
+    </NativeTabs>
   )
 }
 ```
 
-Native tabs (platform tab bars) are stable in SDK 58. Use them when platform-native look matters, and check the docs for the installed SDK's import path.
+Use the JS `Tabs` from `expo-router` only when you need a fully custom tab bar. Its `tabBarIcon` gets `color` typed as the RN 0.88 `ColorValue` (which also allows `null` and numbers), and `@expo/vector-icons` expects a string: pass `color={color as string}` (navigation theme colors are strings at runtime).
 
 ## Params and navigation
 
 ```tsx
 // src/app/orders/[id].tsx
-import { useLocalSearchParams, router } from 'expo-router'
+import { Text } from 'react-native'
+import { useLocalSearchParams } from 'expo-router'
+import { useQuery } from '@tanstack/react-query'
+import { fetchOrder } from '@/api/orders'
 
 export default function OrderScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  // params are strings from a URL — validate before using (deep links are user input)
-  const { data } = useQuery({ queryKey: ['order', id], queryFn: () => fetchOrder(id), enabled: !!id })
-  // ...
-  // router.push('/orders/42'), router.replace('/login'), router.back(), router.dismiss()
+  const valid = /^\d+$/.test(id ?? '') // params are strings from a URL — deep links are user input
+  const { data } = useQuery({ queryKey: ['order', id], queryFn: () => fetchOrder(id), enabled: valid })
+  if (!valid) return <Text>Order not found</Text>
+  return <Text>{data ? `#${data.number} · ${data.status}` : 'Loading…'}</Text>
 }
+// Navigate: router.push('/orders/42'), router.replace('/login'), router.back(), router.dismiss() (from 'expo-router')
 ```
 
 - `useLocalSearchParams` returns the params of this screen. `useGlobalSearchParams` returns the URL params of whatever screen is focused (it re-renders more often).
@@ -128,7 +139,7 @@ export default function Home() {
 }
 ```
 
-Loaders run on the server and are dropped from the client bundle. They need `web.output` = `server` or `static` (server is the default when unset in SDK 58). On SDK 55–57, enable `unstable_useServerDataLoaders` in the `expo-router` plugin. Native apps fetch through TanStack Query or similar, not loaders.
+Loaders run on the server and are dropped from the client bundle. They need `web.output` = `server` or `static` in `app.json`. The SDK 58 template sets `server`; when the key is missing the output is `single` (a plain SPA), and loaders are silently not built. On SDK 55–57, enable `unstable_useServerDataLoaders` in the `expo-router` plugin. Native apps fetch through TanStack Query or similar, not loaders.
 
 ## SDK 58 notes
 

@@ -1,4 +1,4 @@
-# Deploy: Render and Railway (NestJS + Prisma)
+# Deploy: Render and Railway (NestJS + Prisma or MongoDB)
 
 Both run the app as a long-lived Node process (not serverless), so `PrismaService` with `@prisma/adapter-pg` and a normal pool works as-is. Database hosting (Neon, Render/Railway Postgres, Supabase): the `postgres-pro` skill, hosting section.
 
@@ -115,11 +115,38 @@ railway config apply    # apply (CI: --yes --confirm-destructive, only if you me
 - **Secrets:** set them in the dashboard or with `railway variables`. Use references (`db.env.X`, `${{Postgres.DATABASE_URL}}`), never values, in versioned files.
 - **Environments:** create a `staging` environment (PR environments are optional) with its own database or Neon branch.
 
+## MongoDB (Mongoose) instead of Prisma
+
+Same app requirements (shutdown hooks, `/health`, config validation); only the database steps change. Details in `references/mongodb.md`.
+
+| Step | Prisma | Mongoose |
+|------|--------|----------|
+| Build | `npm ci && npx prisma generate && npm run build` | `npm ci && npm run build` |
+| Pre-deploy | `npx prisma migrate deploy` | `npx migrate-mongo up && node dist/scripts/create-indexes.js` |
+| Health | `PrismaHealthIndicator` | `MongooseHealthIndicator` (`pingCheck('mongodb')`) |
+
+```ts
+// src/scripts/create-indexes.ts — run before traffic switches; autoIndex is off in production
+import type { Connection } from 'mongoose'; // type-only: see references/mongodb.md (ESM)
+const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
+const connection = app.get<Connection>(getConnectionToken());
+for (const model of Object.values(connection.models)) {
+  await model.createIndexes(); // creates missing indexes, drops nothing
+}
+await app.close();
+```
+
+- `createIndexes()` only adds. Don't use `syncIndexes()` in the deploy: it also **drops** indexes missing from the schema, which the old version still serving traffic may need. Drop old indexes in a later deploy, once no running code uses them (expand → contract, same as SQL migrations).
+- Building an index on a big collection takes time and load. Create it before the deploy that needs it, outside peak hours, and check progress in Atlas.
+- `migrate-mongo` keeps applied migrations in a `changelog` collection, so `up` is safe to run on every deploy. Its config reads `MONGODB_URI` from the environment (`migrate-mongo-config.js`); never hardcode the URI.
+- **Hosting:** MongoDB Atlas, in the same cloud region as the Render/Railway service. Atlas IP access list: Render and Railway outbound IPs aren't fixed on every plan; check the platform's static outbound IP option before falling back to `0.0.0.0/0`, and if you do use it, rely on a strong password and TLS (on by default in Atlas). Railway also has a MongoDB template (single node, no replica set: no transactions).
+- `MONGODB_URI` includes the database name (`...mongodb.net/myapp?retryWrites=true&w=majority`); without it, data goes to the `test` database.
+
 ## Checklist before the first production deploy
 
 1. `CORS` origin list set to the real frontend domains (Vercel/Cloudflare), not `*`, when cookies are used.
 2. Health check passes locally with `node dist/main` and production-like env vars.
-3. `prisma migrate deploy` ran against a staging database first.
+3. Migrations (`prisma migrate deploy`, or `migrate-mongo up` + index creation) ran against a staging database first.
 4. Secrets are only in the platform, `.env*` is gitignored, and JWT secrets are generated (not copied from `.env.example`).
 5. Logs are structured JSON (NestJS 12 `ConsoleLogger({ json: true })` or pino) and contain no tokens, passwords or full request bodies.
 6. Error monitoring (Sentry `@sentry/nestjs`) set up, with source maps uploaded during the build.

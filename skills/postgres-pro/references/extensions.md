@@ -197,15 +197,15 @@ CREATE INDEX ON embeddings USING hnsw (embedding vector_cosine_ops);
 -- CREATE INDEX ON embeddings USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops);
 
 -- Insert vectors
-INSERT INTO embeddings (content, embedding)
-VALUES ('Hello world', '[0.1, 0.2, 0.3, ...]');
+INSERT INTO embeddings (tenant_id, content, embedding)
+VALUES ($1, $2, $3);  -- $3: the 1536 floats from the embedding API, as '[0.1,0.2,...]' text or a pgvector client type
 
 -- Similarity search (cosine distance)
 SELECT
   content,
-  1 - (embedding <=> '[0.1, 0.2, ...]') as similarity
+  1 - (embedding <=> $1) as similarity
 FROM embeddings
-ORDER BY embedding <=> '[0.1, 0.2, ...]'
+ORDER BY embedding <=> $1
 LIMIT 10;
 
 -- Distance operators

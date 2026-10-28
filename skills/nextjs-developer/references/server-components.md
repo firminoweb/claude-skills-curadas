@@ -1,302 +1,163 @@
-# React Server Components
+# Server and Client Components
 
-## Server Components (Default)
+Examples assume Cache Components (`cacheComponents: true`). In the legacy model the same composition rules apply; only the caching APIs change (`caching.md`).
 
-```tsx
-// app/page.tsx - Server Component by default
-import { db } from '@/lib/db'
+## Server by default, client at the leaves
 
-export default async function Page() {
-  // Data fetching in Server Component
-  const users = await db.user.findMany()
+Everything in `app/` is a Server Component unless the file starts with `'use client'`. Server Components run only on the server: they can query the database and read secrets, and they ship no JavaScript.
 
-  return (
-    <div>
-      <h1>Users</h1>
-      <ul>
-        {users.map(user => (
-          <li key={user.id}>{user.name}</li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-```
-
-## Benefits of Server Components
-
-- **Zero bundle size** - Server Components don't add JavaScript to client bundle
-- **Direct backend access** - Query databases, read files, use secrets
-- **Automatic code splitting** - Only Client Components add to bundle
-- **Streaming** - Send UI progressively as data loads
-- **No client-side waterfalls** - Fetch all data in parallel on server
-
-## Client Components
+Add `'use client'` only for state, effects, event handlers, browser APIs, or a library that uses them. The directive marks a boundary: everything the file imports becomes client code, so put it on the smallest interactive component, not on a page or layout.
 
 ```tsx
-// components/counter.tsx
-'use client' // Required directive
-
-import { useState } from 'react'
-
-export function Counter() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <button onClick={() => setCount(count + 1)}>
-      Count: {count}
-    </button>
-  )
-}
-```
-
-## When to Use Client Components
-
-Use `'use client'` when you need:
-- **Interactivity** - onClick, onChange, event handlers
-- **State** - useState, useReducer
-- **Effects** - useEffect, useLayoutEffect
-- **Browser APIs** - localStorage, window, document
-- **Custom hooks** - Any hook using client-only features
-- **Class components** - Component lifecycle methods
-
-## Composition Pattern
-
-```tsx
-// app/page.tsx - Server Component
-import { ClientWrapper } from './client-wrapper'
-import { db } from '@/lib/db'
-
-export default async function Page() {
-  const data = await db.query()
-
-  return (
-    <div>
-      {/* Server Component content */}
-      <h1>Server Content</h1>
-
-      {/* Pass data to Client Component */}
-      <ClientWrapper initialData={data}>
-        {/* Server Component as children */}
-        <ServerSidebar />
-      </ClientWrapper>
-    </div>
-  )
-}
-
-// components/client-wrapper.tsx
-'use client'
-
-export function ClientWrapper({
-  children,
-  initialData,
-}: {
-  children: React.ReactNode
-  initialData: Data
-}) {
-  const [data, setData] = useState(initialData)
-
-  return (
-    <div>
-      {/* Client Component UI */}
-      <button onClick={() => refresh()}>Refresh</button>
-      {/* Server Component children */}
-      {children}
-    </div>
-  )
-}
-```
-
-## Streaming with Suspense
-
-```tsx
-// app/page.tsx
+// app/products/[id]/page.tsx — server: data + markup
 import { Suspense } from 'react'
-import { SlowComponent } from './slow-component'
-import { FastComponent } from './fast-component'
+import { notFound } from 'next/navigation'
+import { getProduct, getPopularProductIds } from '@/lib/data'
+import { AddToCart } from './add-to-cart'
 
-export default function Page() {
-  return (
-    <div>
-      {/* Renders immediately */}
-      <FastComponent />
-
-      {/* Shows fallback while loading */}
-      <Suspense fallback={<div>Loading...</div>}>
-        <SlowComponent />
-      </Suspense>
-    </div>
-  )
+export async function generateStaticParams() {
+  return (await getPopularProductIds()).map((id) => ({ id }))
 }
 
-// components/slow-component.tsx
-async function getData() {
-  await new Promise(resolve => setTimeout(resolve, 3000))
-  return { data: 'Loaded!' }
-}
-
-export async function SlowComponent() {
-  const data = await getData()
-  return <div>{data.data}</div>
-}
-```
-
-## Parallel Data Fetching
-
-```tsx
-// app/dashboard/page.tsx
-async function getUser() {
-  return fetch('https://api.example.com/user').then((r) => r.json())
-}
-
-async function getPosts() {
-  return fetch('https://api.example.com/posts').then((r) => r.json())
-}
-
-export default async function Dashboard() {
-  // Fetch in parallel
-  const [user, posts] = await Promise.all([
-    getUser(),
-    getPosts(),
-  ])
-
-  return (
-    <div>
-      <UserProfile user={user} />
-      <PostsList posts={posts} />
-    </div>
-  )
-}
-```
-
-## Sequential Data Fetching
-
-```tsx
-// app/artist/[id]/page.tsx
-async function getArtist(id: string) {
-  return fetch(`https://api.example.com/artists/${id}`).then((r) => r.json())
-}
-
-async function getAlbums(artistId: string) {
-  return fetch(`https://api.example.com/artists/${artistId}/albums`).then((r) => r.json())
-}
-
-export default async function ArtistPage({ params }: PageProps<'/artist/[id]'>) {
+export default async function ProductPage({ params }: PageProps<'/products/[id]'>) {
   const { id } = await params
-  // Sequential: albums depends on artist
-  const artist = await getArtist(id)
-  const albums = await getAlbums(artist.id)
-
-  return (
-    <div>
-      <h1>{artist.name}</h1>
-      <Albums albums={albums} />
-    </div>
-  )
-}
-```
-
-## Preloading Data
-
-```tsx
-// lib/data.ts
-import { cache } from 'react'
-
-export const getUser = cache(async (id: string) => {
-  return db.user.findUnique({ where: { id } })
-})
-
-// components/user-profile.tsx
-export async function UserProfile({ userId }: { userId: string }) {
-  const user = await getUser(userId)
-  return <div>{user.name}</div>
-}
-
-// app/page.tsx
-import { getUser } from '@/lib/data'
-import { UserProfile } from '@/components/user-profile'
-
-export default async function Page() {
-  // Preload
-  getUser('123')
-
-  return (
-    <div>
-      {/* This will use cached result */}
-      <UserProfile userId="123" />
-    </div>
-  )
-}
-```
-
-## Server Component Patterns
-
-### Pattern: Layout with Data Fetching
-
-```tsx
-// app/dashboard/layout.tsx
-import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
-
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const session = await auth()
-  const user = await db.user.findUnique({ where: { id: session.userId } })
-
-  return (
-    <div>
-      <Sidebar user={user} />
-      <main>{children}</main>
-    </div>
-  )
-}
-```
-
-### Pattern: Conditional Client Components
-
-```tsx
-// app/page.tsx
-import { ClientComponent } from './client-component'
-
-export default async function Page() {
-  const data = await fetchData()
-
-  // Only render Client Component when needed
-  if (data.requiresInteractivity) {
-    return <ClientComponent data={data} />
-  }
-
-  return <div>{data.content}</div>
-}
-```
-
-### Pattern: Server Component with Client Island
-
-```tsx
-// app/blog/[slug]/page.tsx
-import { LikeButton } from './like-button'
-
-export default async function BlogPost({ params }: PageProps<'/blog/[slug]'>) {
-  const { slug } = await params
-  const post = await getPost(slug)
+  const product = await getProduct(id)
+  if (!product) notFound()
 
   return (
     <article>
-      {/* Server-rendered content */}
-      <h1>{post.title}</h1>
-      <div dangerouslySetInnerHTML={{ __html: post.content }} />
-
-      {/* Client island for interactivity */}
-      <LikeButton postId={post.id} initialLikes={post.likes} />
+      <h1>{product.name}</h1>
+      <p>{product.description}</p>
+      <AddToCart productId={product.id} />   {/* only this ships JS */}
     </article>
   )
 }
 ```
 
-## Context in Server/Client Components
+```tsx
+// app/products/[id]/add-to-cart.tsx — client: interaction only
+'use client'
+
+import { useState } from 'react'
+
+export function AddToCart({ productId }: { productId: string }) {
+  const [qty, setQty] = useState(1)
+  return (
+    <div>
+      <label htmlFor="qty">Quantity</label>
+      <input id="qty" type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+      <button onClick={() => addToCart(productId, qty)}>Add to cart</button>
+    </div>
+  )
+}
+```
+
+## Props across the boundary
+
+- Props from server to client must be serializable: plain objects, arrays, strings, numbers, booleans, `Date`, `Map`/`Set`, Promises, JSX. Not functions (except Server Actions), class instances or ORM objects with methods.
+- Pass only what the client needs. Everything passed is visible in the page source, so never pass a whole user row or anything secret.
+- Mark modules that must never reach the client with `import 'server-only'` (DB clients, code that reads secrets). The build then fails if a Client Component imports them.
+
+## Server Components inside Client Components
+
+A Client Component can't import a Server Component, but it can render one passed as `children` (or any JSX prop):
+
+```tsx
+// app/dashboard/collapsible.tsx
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+
+export function Collapsible({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true)
+  const router = useRouter()
+  return (
+    <section>
+      <button aria-expanded={open} onClick={() => setOpen(!open)}>{title}</button>
+      <button onClick={() => router.refresh()}>Refresh</button>  {/* re-renders the server parts */}
+      {open && children}
+    </section>
+  )
+}
+
+// app/dashboard/page.tsx (server)
+<Collapsible title="Recent orders">
+  <RecentOrders />   {/* still a Server Component, rendered on the server */}
+</Collapsible>
+```
+
+## Streaming and parallel data
+
+```tsx
+// app/dashboard/page.tsx
+import { Suspense } from 'react'
+
+export default function Dashboard() {
+  return (
+    <>
+      <h1>Dashboard</h1>                                    {/* static shell */}
+      <Suspense fallback={<p>Loading stats…</p>}>
+        <Stats />                                           {/* streams when ready */}
+      </Suspense>
+      <Suspense fallback={<p>Loading activity…</p>}>
+        <Activity />                                        {/* independent of Stats */}
+      </Suspense>
+    </>
+  )
+}
+
+async function Stats() {
+  const session = await requireSession()                    // reads cookies → request time
+  const [orders, revenue] = await Promise.all([             // independent → parallel, not two awaits
+    getOrderCount(session.userId),
+    getRevenue(session.userId),
+  ])
+  return <p>{orders} orders, {revenue} revenue</p>
+}
+```
+
+- Sequential awaits are only right when the second call needs the first result.
+- One `<Suspense>` per region that can arrive independently. `loading.tsx` wraps the whole segment.
+
+## Request-time data in layouts
+
+A layout that reads cookies at the top makes every page below it wait for the request. Under Cache Components it also fails the build. Read the session in a small component under `<Suspense>` instead:
+
+```tsx
+// app/(app)/layout.tsx
+import { Suspense } from 'react'
+
+export default function AppLayout({ children }: LayoutProps<'/'>) {
+  return (
+    <div className="flex">
+      <nav>
+        <Suspense fallback={<UserMenuSkeleton />}>
+          <UserMenu />       {/* reads the session */}
+        </Suspense>
+      </nav>
+      <main className="flex-1">{children}</main>
+    </div>
+  )
+}
+```
+
+A layout is not an auth gate: it doesn't re-render on every navigation, and pages and actions can be reached without it. Check the session in each page, action and route handler that touches private data (a `requireSession()` helper wrapped in React `cache()`).
+
+## Per-request deduplication
+
+```ts
+// lib/data.ts
+import 'server-only'
+import { cache } from 'react'
+
+export const getUser = cache(async (id: string) => db.user.findUnique({ where: { id } }))
+// layout, page and generateMetadata calling getUser(id) in the same request → one query
+```
+
+`cache()` lasts one request. For data shared between requests use `'use cache'` (`caching.md`).
+
+## Context providers and client-only libraries
 
 ```tsx
 // app/providers.tsx
@@ -305,68 +166,14 @@ export default async function BlogPost({ params }: PageProps<'/blog/[slug]'>) {
 import { ThemeProvider } from 'next-themes'
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <ThemeProvider>{children}</ThemeProvider>
+  return <ThemeProvider attribute="class">{children}</ThemeProvider>
 }
 
-// app/layout.tsx
-import { Providers } from './providers'
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html>
-      <body>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  )
-}
+// app/layout.tsx (server) renders <Providers>{children}</Providers> inside <body>
 ```
 
-## Third-Party Components
-
-```tsx
-// components/carousel-wrapper.tsx
-'use client'
-
-import { Carousel } from 'third-party-carousel'
-
-export function CarouselWrapper({ items }: { items: Item[] }) {
-  return <Carousel items={items} />
-}
-
-// app/page.tsx
-import { CarouselWrapper } from '@/components/carousel-wrapper'
-
-export default async function Page() {
-  const items = await fetchItems()
-  return <CarouselWrapper items={items} />
-}
-```
+Pages below the provider stay Server Components. A library without `'use client'` that uses hooks (an older carousel, a chart) needs a one-line wrapper file with `'use client'` that re-exports it.
 
 ## Runtime
 
-Use the default Node.js runtime. `export const runtime = 'edge'` is not supported by the Cloudflare adapter (OpenNext) and is unnecessary on Vercel, where Node.js functions run on Fluid compute.
-
-## Quick Reference
-
-| Capability | Server Component | Client Component |
-|------------|------------------|------------------|
-| Data fetching | ✅ Yes | ⚠️ Use SWR/React Query |
-| Backend access | ✅ Yes (DB, files) | ❌ No |
-| Event handlers | ❌ No | ✅ Yes |
-| State/Effects | ❌ No | ✅ Yes |
-| Browser APIs | ❌ No | ✅ Yes |
-| Bundle size | 0 KB | Adds to bundle |
-| Streaming | ✅ Yes | ❌ No |
-
-## Best Practices
-
-1. **Default to Server Components** - Only use 'use client' when needed
-2. **Move Client Components down** - Push them to leaves of component tree
-3. **Pass data down** - Fetch in Server Components, pass to Client Components
-4. **Use composition** - Nest Server Components inside Client Components via children
-5. **Cache expensive operations** - Use React cache() for deduplication
+Use the default Node.js runtime. Under Cache Components, remove every `runtime` export (even `'nodejs'`): it isn't supported. `runtime = 'edge'` is also unsupported by the Cloudflare adapter and unnecessary on Vercel.

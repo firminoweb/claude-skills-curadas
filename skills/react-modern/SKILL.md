@@ -4,8 +4,8 @@ description: Use when writing, reviewing or refactoring React components and hoo
 license: MIT
 metadata:
   author: curated
-  version: "1.0.0"
-  baseline: "React 19.3, React Compiler 1.x, eslint-plugin-react-hooks 6+ (Oct 2026)"
+  version: "1.1.0"
+  baseline: "React 19.3, React Compiler 1.x, eslint-plugin-react-hooks 7 (Oct 2026); examples type-checked on react 19.3.1"
   domain: frontend
   triggers: React, hooks, useEffect, useState, React Compiler, Suspense, useActionState, useOptimistic, Activity, ViewTransition
   role: specialist
@@ -20,10 +20,10 @@ Framework-agnostic React 19.x. Framework specifics live elsewhere: `nextjs-devel
 ## First: read the project
 
 1. `react` version in `package.json`. Don't use an API newer than the installed version (table below).
-2. **Is the React Compiler on?** Look for `reactCompiler: true` (Next.js `next.config.ts`), `babel-plugin-react-compiler` (Vite/Babel), or `experiments.reactCompiler` (Expo `app.json`).
+2. **Is the React Compiler on?** Look for `reactCompiler: true` (Next.js `next.config.ts`, which also needs `babel-plugin-react-compiler` installed), `babel-plugin-react-compiler` (Vite/Babel), or `experiments.reactCompiler` (Expo `app.json`, on in the SDK 58 template).
    - **On:** write plain code. Don't add `useMemo`/`useCallback`/`memo` for performance. Keep existing ones unless asked, because removing them can change effect dependencies.
    - **Off:** memoize only where profiling or a memoized child requires it.
-3. `eslint-plugin-react-hooks` v6+ (`recommended`) includes the compiler-powered rules. Treat its errors as bugs, not noise.
+3. `eslint-plugin-react-hooks` v6+ includes the compiler-powered rules (`set-state-in-effect`, `refs`, `purity`, `immutability`…). Treat its errors as bugs, not noise. In `eslint.config.*` (flat config) use `reactHooks.configs.flat.recommended`. `configs.recommended` is the legacy `.eslintrc` shape.
 
 ## React 18 habits that are now wrong
 

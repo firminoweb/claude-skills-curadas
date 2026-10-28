@@ -6,8 +6,8 @@ On managed Postgres (RDS/Aurora, Cloud SQL, Neon, Supabase) the provider runs re
 
 ### Primary Server Setup
 
-```sql
--- postgresql.conf
+```ini
+# postgresql.conf
 wal_level = replica
 max_wal_senders = 10
 max_replication_slots = 10
@@ -18,7 +18,7 @@ hot_standby = on
 archive_mode = on
 archive_command = 'cp %p /var/lib/postgresql/wal_archive/%f'
 
--- pg_hba.conf (allow replication connections)
+# pg_hba.conf (allow replication connections)
 host replication replicator 10.0.0.0/24 scram-sha-256
 ```
 
@@ -48,9 +48,9 @@ pg_basebackup -h primary-host -D /var/lib/postgresql/18/main \
 # -S replica_1: use replication slot
 ```
 
-```sql
--- standby.signal file created by pg_basebackup -R
--- recovery parameters in postgresql.auto.conf:
+```ini
+# standby.signal file created by pg_basebackup -R
+# recovery parameters in postgresql.auto.conf:
 primary_conninfo = 'host=primary-host port=5432 user=replicator password=<replication-password>'
 primary_slot_name = 'replica_1'
 ```
@@ -86,8 +86,8 @@ FROM pg_replication_slots;
 
 ### Synchronous Replication
 
-```sql
--- postgresql.conf on primary
+```ini
+# postgresql.conf on primary
 synchronous_commit = on
 synchronous_standby_names = 'FIRST 1 (replica_1, replica_2)'
 # Waits for 1 standby to confirm before commit
@@ -96,7 +96,9 @@ synchronous_standby_names = 'FIRST 1 (replica_1, replica_2)'
 # FIRST n (names): Wait for n standbys
 # ANY n (names): Wait for any n standbys
 # name: Wait for specific standby
+```
 
+```sql
 -- Query to check sync status
 SELECT
   application_name,
@@ -110,12 +112,14 @@ FROM pg_stat_replication;
 
 ### Publisher Setup
 
-```sql
--- postgresql.conf
+```ini
+# postgresql.conf
 wal_level = logical
 max_replication_slots = 10
 max_wal_senders = 10
+```
 
+```sql
 -- Create publication (all tables)
 CREATE PUBLICATION my_publication FOR ALL TABLES;
 
@@ -195,24 +199,26 @@ FROM pg_stat_subscription;
 Primary -> Standby1 -> Standby2
 ```
 
-```sql
--- On Standby1 (acts as relay)
--- postgresql.conf
+```ini
+# On Standby1 (acts as relay)
+# postgresql.conf
 hot_standby = on
 max_wal_senders = 10
 wal_keep_size = 1GB
 
--- Standby2 connects to Standby1
--- Same setup as regular standby, but primary_conninfo points to Standby1
+# Standby2 connects to Standby1
+# Same setup as regular standby, but primary_conninfo points to Standby1
 primary_conninfo = 'host=standby1-host user=replicator...'
 ```
 
 ## Delayed Replication (Delayed Standby)
 
-```sql
--- On standby: postgresql.conf
+```ini
+# On standby: postgresql.conf
 recovery_min_apply_delay = '4h'
+```
 
+```sql
 -- Useful for:
 -- - Protection against accidental data deletion
 -- - Rolling back to specific point in time
@@ -321,7 +327,9 @@ pool_mode = transaction
 max_client_conn = 1000
 default_pool_size = 25
 reserve_pool_size = 5
-max_prepared_statements = 200   ; 1.21+: protocol-level prepared statements work in transaction mode
+; 1.21+: protocol-level prepared statements work in transaction mode.
+; Comments go on their own line: pgbouncer.ini doesn't allow them after a value (it won't start)
+max_prepared_statements = 200
 ```
 
 ### HAProxy for Load Balancing
@@ -364,14 +372,14 @@ Prefer a maintained tool (pgBackRest, Barman, WAL-G) over hand-written `archive_
 
 ### WAL Archiving Setup
 
-```sql
--- postgresql.conf
+```ini
+# postgresql.conf
 wal_level = replica
 archive_mode = on
 archive_command = 'test ! -f /backup/wal/%f && cp %p /backup/wal/%f'
 archive_timeout = 300  # Force archive every 5 minutes
 
--- Or with pgBackRest
+# Or with pgBackRest
 archive_command = 'pgbackrest --stanza=main archive-push %p'
 ```
 

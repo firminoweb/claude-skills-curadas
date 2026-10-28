@@ -229,26 +229,26 @@ SELECT count(*) FROM pg_stat_activity WHERE state = 'active';
 
 ## Configuration Tuning
 
-```sql
--- Memory settings (for 16GB RAM server)
-shared_buffers = 4GB           -- 25% of RAM
-effective_cache_size = 12GB    -- 75% of RAM
-work_mem = 64MB                -- Per sort/hash node, per connection: 64MB x nodes x connections can exhaust RAM
-maintenance_work_mem = 1GB     -- For VACUUM, CREATE INDEX
+```ini
+# Memory settings (for 16GB RAM server)
+shared_buffers = 4GB  # 25% of RAM
+effective_cache_size = 12GB  # 75% of RAM
+work_mem = 64MB  # Per sort/hash node, per connection: 64MB x nodes x connections can exhaust RAM
+maintenance_work_mem = 1GB  # For VACUUM, CREATE INDEX
 
--- Checkpoint tuning
+# Checkpoint tuning
 checkpoint_completion_target = 0.9
 wal_buffers = 16MB
 checkpoint_timeout = 10min
 
--- Query planner
-random_page_cost = 1.1         -- Lower for SSD (default 4.0)
-effective_io_concurrency = 200 -- Higher for SSD (default 16 since PG 18)
+# Query planner
+random_page_cost = 1.1  # Lower for SSD (default 4.0)
+effective_io_concurrency = 200  # Higher for SSD (default 16 since PG 18)
 
--- Asynchronous I/O (PG 18): sync | worker (default) | io_uring (Linux, needs a restart)
+# Asynchronous I/O (PG 18): sync | worker (default) | io_uring (Linux, needs a restart)
 io_method = worker
 
--- Parallelism
+# Parallelism
 max_parallel_workers_per_gather = 4
 max_parallel_workers = 8
 ```

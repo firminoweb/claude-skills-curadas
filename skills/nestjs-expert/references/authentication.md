@@ -142,6 +142,116 @@ export class AuthService {
 - Keep the JWT payload minimal (`sub`, `role`); no email or PII. If roles change often, load the user in `validate()` instead of trusting the token's role.
 - Rate-limit `/auth/login` and `/auth/refresh` with `@nestjs/throttler` (`@Throttle({ default: { limit: 5, ttl: 60_000 } })`).
 
+## Social Login (Google)
+
+Social login only proves who the user is. After that, issue **our own** tokens with `issueTokens()` above; never use Google's tokens as the API session.
+
+```prisma
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String?
+  role         String    @default("user")
+  passwordHash String?   // null for social-only accounts
+  accounts     Account[]
+}
+
+model Account {
+  id         String @id @default(uuid())
+  provider   String // 'google', 'apple'
+  providerId String // the provider's `sub`, stable; email can change
+  userId     String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerId])
+}
+```
+
+```ts
+// Shared by both flows below
+async loginWithProvider(p: { provider: string; providerId: string; email: string; emailVerified: boolean; name?: string }) {
+  const account = await this.prisma.account.findUnique({
+    where: { provider_providerId: { provider: p.provider, providerId: p.providerId } },
+    include: { user: true },
+  });
+  if (account) return this.issueTokens(account.user.id, account.user.role);
+
+  // Linking to an existing user by email ONLY if the provider verified it; otherwise anyone
+  // could create a Google account with the victim's email and take over their account
+  if (!p.emailVerified) throw new UnauthorizedException('Email not verified by provider');
+
+  const user = await this.prisma.user.upsert({
+    where: { email: p.email },
+    update: { accounts: { create: { provider: p.provider, providerId: p.providerId } } },
+    create: { email: p.email, name: p.name, accounts: { create: { provider: p.provider, providerId: p.providerId } } },
+  });
+  return this.issueTokens(user.id, user.role);
+}
+```
+
+**A) Mobile app or SPA with the Google SDK (simplest, stateless).** The client signs in with Google (Expo/React Native `@react-native-google-signin/google-signin`, Google Identity Services on the web) and sends the ID token. The API verifies it:
+
+```ts
+import { OAuth2Client } from 'google-auth-library';
+
+private readonly google = new OAuth2Client();
+
+@Public()
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
+@Post('auth/google')
+async googleLogin(@Body() { idToken }: GoogleLoginDto) {
+  const ticket = await this.google.verifyIdToken({
+    idToken,
+    audience: this.config.getOrThrow<string>('GOOGLE_CLIENT_IDS').split(','), // web, iOS and Android client ids
+  }).catch(() => { throw new UnauthorizedException(); });
+  const t = ticket.getPayload()!;
+  return this.auth.loginWithProvider({
+    provider: 'google', providerId: t.sub, email: t.email!, emailVerified: t.email_verified === true, name: t.name,
+  });
+}
+```
+
+`verifyIdToken` checks signature, expiry, issuer and audience. The `audience` check is what stops a token issued to someone else's app from logging in here.
+
+**B) Server redirect flow (web without the Google SDK).** `passport-google-oauth20`:
+
+```ts
+@Injectable()
+export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
+  constructor(config: ConfigService, private readonly auth: AuthService) {
+    super({
+      clientID: config.getOrThrow('GOOGLE_CLIENT_ID'),
+      clientSecret: config.getOrThrow('GOOGLE_CLIENT_SECRET'),
+      callbackURL: config.getOrThrow('GOOGLE_CALLBACK_URL'), // absolute, registered in Google Console
+      scope: ['openid', 'email', 'profile'],
+      state: true, // CSRF protection on the callback
+    });
+  }
+
+  validate(_at: string, _rt: string, profile: Profile) {
+    return this.auth.loginWithProvider({
+      provider: 'google', providerId: profile.id, email: profile.emails![0].value,
+      emailVerified: profile._json.email_verified === true, name: profile.displayName,
+    });
+  }
+}
+
+// controller
+@Public() @UseGuards(AuthGuard('google')) @Get('auth/google') start() {}
+
+@Public() @UseGuards(AuthGuard('google')) @Get('auth/google/callback')
+callback(@Req() req, @Res() res: Response) {
+  const { refreshToken } = req.user; // what validate() returned
+  res.cookie('refresh_token', refreshToken, { httpOnly: true, secure: true, sameSite: 'lax', path: '/auth' });
+  res.redirect(this.config.getOrThrow('FRONTEND_URL') + '/auth/done'); // frontend then calls /auth/refresh
+}
+```
+
+- `state: true` needs somewhere to keep the state between redirect and callback: passport stores it in `req.session`, so add a session middleware scoped to `/auth/google*` (or pass a custom `store`). Without it the callback fails with "requires session support".
+- **Never put tokens in the redirect URL** (they end up in history, logs and `Referer`). Set the refresh cookie and let the frontend get an access token via `/auth/refresh`. The refresh cookie needs `sameSite: 'lax'` here: `strict` isn't sent on the redirect back from Google.
+- Redirect only to a configured `FRONTEND_URL`, never to a `?redirect=` value from the request (open redirect).
+- `passport-google-oauth20` hasn't had a release since 2019 but still works. For several OIDC providers, `openid-client` (v6) handles PKCE and discovery.
+- Apple, GitHub: same `Account` table, same `loginWithProvider`; only the verification step changes. GitHub's email may be unverified or private: fetch `/user/emails` and use only `verified: true`.
+
 ## Auth Module Setup
 
 ```typescript

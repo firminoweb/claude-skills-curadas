@@ -60,24 +60,24 @@ FROM pg_stat_progress_vacuum;
 
 ## Autovacuum Configuration
 
-```sql
--- Global settings (postgresql.conf)
+```ini
+# Global settings (postgresql.conf)
 autovacuum = on
-autovacuum_max_workers = 3  -- PG 18: can be raised without restart up to autovacuum_worker_slots
-autovacuum_naptime = 60s  -- Check interval
+autovacuum_max_workers = 3  # PG 18: can be raised without restart up to autovacuum_worker_slots
+autovacuum_naptime = 60s  # Check interval
 
--- Vacuum thresholds
+# Vacuum thresholds
 autovacuum_vacuum_threshold = 50
 autovacuum_vacuum_scale_factor = 0.2
--- Triggers when: dead_tuples > threshold + (scale_factor * total_tuples)
--- Default: 50 + (0.2 * 1000000) = 200,050 dead tuples for 1M row table
+# Triggers when: dead_tuples > threshold + (scale_factor * total_tuples)
+# Default: 50 + (0.2 * 1000000) = 200,050 dead tuples for 1M row table
 
--- Analyze thresholds
+# Analyze thresholds
 autovacuum_analyze_threshold = 50
 autovacuum_analyze_scale_factor = 0.1
 
--- Performance settings
-autovacuum_vacuum_cost_delay = 2ms  -- Lower = faster, more I/O impact
+# Performance settings
+autovacuum_vacuum_cost_delay = 2ms  # Lower = faster, more I/O impact
 autovacuum_vacuum_cost_limit = 200
 ```
 
@@ -242,8 +242,8 @@ WHERE state = 'active'
 ORDER BY duration DESC;
 
 -- Kill long-running query
-SELECT pg_cancel_backend(pid);  -- Graceful
-SELECT pg_terminate_backend(pid);  -- Forceful
+SELECT pg_cancel_backend(12345);     -- Graceful: cancels the query (pid from the queries above)
+SELECT pg_terminate_backend(12345);  -- Forceful: closes the connection
 
 -- Idle transactions (bad, hold locks)
 SELECT
@@ -408,12 +408,14 @@ ORDER BY age(datfrozenxid) DESC;
 
 -- Per-table wraparound status
 SELECT
-  schemaname,
-  relname,
-  age(relfrozenxid) as xid_age,
-  pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) as size
-FROM pg_stat_user_tables
-ORDER BY age(relfrozenxid) DESC
+  c.oid::regclass AS table_name,
+  age(c.relfrozenxid) AS xid_age,
+  pg_size_pretty(pg_total_relation_size(c.oid)) AS size
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'm', 't')
+  AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+ORDER BY age(c.relfrozenxid) DESC
 LIMIT 20;
 
 -- Prevent wraparound: VACUUM FREEZE

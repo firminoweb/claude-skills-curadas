@@ -229,7 +229,7 @@ SELECT jsonb_object_keys(data) FROM documents;
 SELECT jsonb_pretty(data) FROM documents;
 
 -- Type checking
-SELECT jsonb_typeof(data -> 'score');  -- number, string, array, object, boolean, null
+SELECT jsonb_typeof(data -> 'score') FROM documents;  -- number, string, array, object, boolean, null
 
 -- Strip nulls
 SELECT jsonb_strip_nulls(data) FROM documents;
@@ -285,15 +285,16 @@ ALTER TABLE documents ADD COLUMN status TEXT GENERATED ALWAYS AS (data ->> 'stat
 CREATE INDEX idx_docs_status_col ON documents(status);
 
 -- Use @> for indexed queries
-WHERE data @> '{"status": "active"}'  -- Fast with GIN index
+SELECT id FROM documents WHERE data @> '{"status": "active"}';  -- Fast with GIN index
 ```
 
 ### DON'T
 
 ```sql
--- Don't use ->> with @> (mixing types)
-WHERE data @> '{"score": "100"}'  -- Wrong, comparing string
-WHERE CAST(data ->> 'score' AS INTEGER) = 100  -- Better
+-- Match the stored JSON type: a number in the document needs a number in @>
+SELECT id FROM documents WHERE data @> '{"score": "100"}';  -- Wrong: matches only the string "100"
+SELECT id FROM documents WHERE data @> '{"score": 100}';    -- Right, and uses the GIN index
+-- (data ->> 'score')::int = 100 also works but ignores the GIN index: it needs its own expression index
 
 -- Don't query without indexes
 SELECT * FROM documents WHERE data -> 'nested' -> 'deep' ->> 'value' = 'x';

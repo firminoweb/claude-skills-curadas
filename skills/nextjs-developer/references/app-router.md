@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     default: 'My App',
     template: '%s | My App'
   },
-  description: 'Next.js 14 application',
+  description: 'My App description',
 }
 
 export default function RootLayout({
@@ -234,6 +234,8 @@ export async function generateStaticParams() {
   return posts.map((post) => ({ slug: post.slug }))
 }
 ```
+
+Under Cache Components, a dynamic route needs `generateStaticParams` with at least one param, or `params`/`searchParams` awaited under `<Suspense>` (a `loading.tsx` in the segment is enough). Otherwise the build fails. `searchParams` is always request-time. See `caching.md`.
 
 Caching and static/dynamic behavior: see `caching.md` (`'use cache'` with Cache Components; `dynamic`/`revalidate` segment configs only in the legacy model).
 

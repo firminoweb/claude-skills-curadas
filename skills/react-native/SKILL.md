@@ -4,8 +4,8 @@ description: Use when building, reviewing, debugging or upgrading a React Native
 license: MIT
 metadata:
   author: curated
-  version: "2.0.0"
-  baseline: "Expo SDK 58 (RN 0.88) / SDK 57 (RN 0.86); bare RN 0.86+; React Navigation 7 (8 pre-release); Reanimated 4, FlashList 2 (Oct 2026)"
+  version: "2.1.0"
+  baseline: "Expo SDK 58 (RN 0.88) / SDK 57 (RN 0.86); bare RN 0.86+; React Navigation 7 (8 pre-release); Reanimated 4.7, FlashList 2.3 (Oct 2026); examples bundled on SDK 58 for iOS, Android and web"
   domain: mobile
   triggers: React Native, Expo, Expo Router, React Navigation, EAS, Turbo Module, Nitro, Expo Modules, NativeWind, FlashList, Reanimated, push notifications
   role: specialist
@@ -50,7 +50,8 @@ Then:
 | `Animated` API for gestures/complex motion | Reanimated 4 + Gesture Handler (UI thread) |
 | `runOnJS` / `runOnUI` | `scheduleOnRN` / `scheduleOnUI` from `react-native-worklets` |
 | Flipper | React Native DevTools, plus Expo Atlas for bundle size |
-| `InteractionManager`, `Touchable*` | Removed in RN 0.88. Use `requestIdleCallback`/`startTransition` and `Pressable` |
+| `InteractionManager` | Removed in RN 0.88 (throws in dev). Use `requestIdleCallback` or `startTransition` |
+| `TouchableOpacity`/`TouchableHighlight` in new code | `Pressable` (Touchables still exist, but `Pressable` is the current API) |
 | Deep imports `react-native/Libraries/*` | Type errors with the strict TS API (RN 0.88). Use public exports |
 | Legacy Native Modules (`RCT_EXPORT_METHOD`, bridge) | Expo Modules API, Turbo Modules or Nitro (`references/native-modules.md`) |
 | Tokens in AsyncStorage | `expo-secure-store` or `react-native-keychain` |
@@ -67,6 +68,7 @@ import { Pressable, Text, View, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { fetchOrders, type Order } from '@/api/orders'
+import { ErrorState, Loading } from '@/components/states'
 
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets()

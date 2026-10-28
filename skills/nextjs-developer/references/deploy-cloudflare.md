@@ -2,7 +2,9 @@
 
 Next.js runs on Workers through `@opennextjs/cloudflare`. It uses the Node.js runtime with `nodejs_compat`, **not** the Edge runtime. `@cloudflare/next-on-pages` is the old Edge-only path; migrate away from it.
 
-Checked against adapter 1.20.12 (Oct 2026), whose peer range is `next >=15.5.28 <16 || >=16.4.1` and `wrangler ^4.148.0`. Re-check `npm view @opennextjs/cloudflare peerDependencies` before pinning versions.
+Checked against adapter 1.20.14 + wrangler 4.155 + next 16.4.3 (Oct 2026): this file's `open-next.config.ts` and `wrangler.jsonc` built and ran in `preview` with Cache Components, `proxy.ts`, Server Actions and route handlers. Peer range: `next >=15.5.28 <16 || >=16.4.1`, `wrangler ^4.148.0`. Re-check `npm view @opennextjs/cloudflare peerDependencies` before pinning versions.
+
+`next build`/`next dev` print "no such Durable Object class is exported" for `DOQueueHandler`. It's harmless: the class is exported by the built `.open-next/worker.js`, not by Next.
 
 ## Setup
 

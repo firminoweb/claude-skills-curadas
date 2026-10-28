@@ -10,10 +10,10 @@ Seleção de skills de [Jeffallan/claude-skills](https://github.com/Jeffallan/cl
 | `secure-code-guardian` | + `references/fullstack-security-checklist.md` (vinda da `fullstack-guardian`) | Escrever código seguro (auth, validação, OWASP) |
 | `postgres-pro` | **atualizada** | PostgreSQL 18 (19 a caminho): consultas lentas, índices, migrações sem travar o banco, JSONB/SQL-JSON, pgvector 0.8, pooling, upgrades, hospedagem (Neon, Render, Railway, Supabase) |
 | `playwright-expert` | **atualizada** | Playwright 1.64: setup project de login, dados por teste, aria snapshots, clock, CI com shards, test agents/MCP |
-| `nestjs-expert` | **reescrita** | NestJS 12 + Prisma 7 (adapter, migrações, transações, filtro de erros), class-validator ou Zod (Standard Schema), JWT com refresh rotativo, testes com banco real, deploy no Render e no Railway |
-| `nextjs-developer` | **reescrita (v2.0.0)** | Next.js 16.4 + deploy Vercel e Cloudflare (OpenNext) |
-| `react-modern` | **nova** | React 19.3 sem framework: hooks, effects, React Compiler, forms, state |
-| `react-native` | **nova** | Expo SDK 57/58 ou RN puro, brownfield, monorepo com Next; módulos nativos (Expo Modules/Turbo/Nitro), push, offline, Sentry, i18n, estilização |
+| `nestjs-expert` | **reescrita** | NestJS 12 + Prisma 7 (adapter, migrações, transações, filtro de erros), class-validator ou Zod (Standard Schema), JWT com refresh rotativo, login Google, GraphQL (Apollo 5, DataLoader), MongoDB (Mongoose 9) como alternativa ao Prisma, Kafka (consumidor idempotente, DLT, outbox), BullMQ 6 (jobs, retries, agendamento entre réplicas, worker separado), testes com banco real, deploy no Render e no Railway; erros e resiliência, diagnóstico de performance, níveis de arquitetura e SOLID adaptados de [amirtaherkhani/nestjs-skills](https://github.com/amirtaherkhani/nestjs-skills) (MIT, © 2026 amirtaherkhani) |
+| `nextjs-developer` | **reescrita (v2.1.0)** | Next.js 16.4 com Cache Components (rotas dinâmicas, layouts com sessão, migração com `instant = false`) + deploy Vercel e Cloudflare (OpenNext). Exemplos testados em 28/10 com `next build`, `next start` e `opennextjs-cloudflare preview` |
+| `react-modern` | **nova (v1.1.0)** | React 19.3 sem framework: hooks, effects, React Compiler, forms, state. Exemplos checados com `tsc` e `eslint-plugin-react-hooks` 7 |
+| `react-native` | **nova (v2.1.0)** | Expo SDK 57/58 ou RN puro, brownfield, monorepo com Next; módulos nativos (Expo Modules/Turbo/Nitro), push, offline, Sentry, i18n, estilização. Exemplos empacotados no SDK 58 para iOS, Android e web em 28/10 |
 
 Ajustes nas intactas: removidas referências `related-skills` e links para skills que não vieram.
 
@@ -64,9 +64,9 @@ Pode pedir ao Claude: *"revise as skills de claude-skills-curadas contra as vers
 |-------|----------|-----------------------------------|
 | `nextjs-developer` | Next.js, `@opennextjs/cloudflare`, wrangler, Vercel | Bugs do `proxy.ts` no OpenNext (#1373, #1400) |
 | `react-modern` | React, React Compiler, `eslint-plugin-react-hooks` | — |
-| `react-native` | Expo SDK, React Native, React Navigation, NativeWind | React Navigation 8 e NativeWind v5 estáveis? |
-| `nestjs-expert` | `@nestjs/core`, `prisma`/`@prisma/client`, Render, Railway | **Prisma 8** (hoje RC, API nova); pre-deploy no IaC do Railway |
-| `postgres-pro` | PostgreSQL, pgvector, PgBouncer, Neon | **PostgreSQL 19** (GA previsto para 19/11/2026) |
+| `react-native` | Expo SDK, React Native, React Navigation, NativeWind | React Navigation 8 e NativeWind v5 estáveis? Os `Touchable*` saíram do RN? |
+| `nestjs-expert` | `@nestjs/core`, `prisma`/`@prisma/client`, `mongoose`, `kafkajs` (ainda sem manutenção? o transporte do Nest mudou de cliente?), `bullmq` (o `@nestjs/bullmq` já aceita o backend PostgreSQL?), Render, Railway | **Prisma 8** (hoje RC, API nova); pre-deploy no IaC do Railway |
+| `postgres-pro` | PostgreSQL, pgvector, PgBouncer, Neon | **PostgreSQL 19** (GA previsto para 19/11/2026; os exemplos já rodaram sem erro no 19rc1 em 28/10) |
 | `playwright-expert` | `@playwright/test` | — |
 | `the-fool`, `spec-miner`, `security-reviewer`, `secure-code-guardian` | Só o OWASP Top 10 (muda raramente) | — |
 

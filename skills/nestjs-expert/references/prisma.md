@@ -11,7 +11,7 @@ npx prisma init --datasource-provider postgresql --output ../src/generated/prism
 ```
 
 - Pin `@7` on both: `prisma`'s npm `latest` tag is the Prisma 8 RC. Keep `prisma` and `@prisma/client` on the same version.
-- Other databases: `@prisma/adapter-mariadb` (MySQL/MariaDB), `@prisma/adapter-mssql`, `@prisma/adapter-better-sqlite3`. MongoDB isn't supported in Prisma 7 (stay on 6).
+- Other databases: `@prisma/adapter-mariadb` (MySQL/MariaDB), `@prisma/adapter-mssql`, `@prisma/adapter-better-sqlite3`. MongoDB isn't supported in Prisma 7: existing Prisma 6 + MongoDB projects can stay on 6; new ones use Mongoose (`references/mongodb.md`).
 - `init` adds `.env` and the generated folder to `.gitignore`.
 
 ## Config and schema

@@ -4,8 +4,8 @@ description: Use when building, changing or deploying a Next.js App Router app (
 license: MIT
 metadata:
   author: https://github.com/Jeffallan
-  version: "2.0.0"
-  baseline: "Next.js 16.4, React 19.3, @opennextjs/cloudflare 1.20 (Oct 2026)"
+  version: "2.1.0"
+  baseline: "Next.js 16.4, React 19.3, @opennextjs/cloudflare 1.20 (Oct 2026); examples built with next 16.4.3"
   domain: frontend
   triggers: Next.js, App Router, Server Components, Server Actions, use cache, cacheComponents, proxy.ts, middleware, Vercel, Cloudflare, OpenNext, wrangler
   role: specialist
@@ -38,7 +38,8 @@ Before writing code, check:
 | `useFormState` from `react-dom` | `useActionState` from `react` |
 | `experimental.ppr`, `experimental.dynamicIO`, `unstable_cacheLife` | `cacheComponents: true`, `cacheLife`, `cacheTag` |
 | `next lint`, `next build --turbopack` | ESLint/Biome CLI directly. Turbopack is the default |
-| `export const runtime = 'edge'` for speed | Node.js runtime. Edge is unsupported on Cloudflare/OpenNext and needless on Vercel |
+| `export const runtime = 'edge'` for speed | Node.js runtime. Edge is unsupported on Cloudflare/OpenNext and needless on Vercel. Under Cache Components remove every `runtime` export |
+| `dynamicParams`, `dynamic`, `revalidate`, `fetchCache` segment configs with Cache Components | Remove them (`dynamicParams` fails the build): `notFound()` for unknown params, `<Suspense>` for request-time parts, `cacheLife` for revalidation |
 | Parallel route slot without `default.tsx` | Required. The build fails without it |
 | `images.domains` | `images.remotePatterns` |
 
@@ -52,6 +53,12 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { db } from '@/lib/db'
 import { Comments } from './comments'          // reads the session → request time
+
+// Cache Components: a dynamic route needs ≥1 known param, or params awaited under <Suspense>
+export async function generateStaticParams() {
+  const posts = await db.post.findMany({ select: { slug: true }, take: 50 })
+  return posts.map(({ slug }) => ({ slug })) // unlisted slugs still render on request
+}
 
 export async function generateMetadata({ params }: PageProps<'/posts/[slug]'>): Promise<Metadata> {
   const { slug } = await params
@@ -89,7 +96,7 @@ Mutations go through Server Actions that **authenticate, authorize and validate 
 
 - Server Components by default. Put `'use client'` on the smallest interactive leaf, and pass plain serializable props to it.
 - Fetch on the server, parallelize with `Promise.all`, and stream slow parts with `<Suspense>`.
-- Under Cache Components, every dynamic read sits inside `'use cache'` or under `<Suspense>`. Fix "uncached data outside Suspense" build errors that way, never by turning the flag off.
+- Under Cache Components, every dynamic read (`cookies()`, `params`, `searchParams`, uncached I/O, `Date.now()`) sits inside `'use cache'` or under `<Suspense>`. Fix "uncached or runtime data during prerendering" build errors that way, never by turning the flag off. Dynamic routes, layouts and migration (`instant = false`): `references/caching.md`.
 - Use `loading.tsx` / `error.tsx` where a segment fetches. `error.tsx` must be a Client Component.
 - SEO through `metadata` / `generateMetadata`, and images through `next/image` with `remotePatterns`.
 - Authorization lives next to the data (page, action, handler). `proxy.ts` only does optimistic redirects.

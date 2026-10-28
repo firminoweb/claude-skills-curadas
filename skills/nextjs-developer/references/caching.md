@@ -20,7 +20,13 @@ export default nextConfig
 
 ### The one rule the build enforces
 
-Dynamic data (uncached I/O, `cookies()`, `headers()`, `searchParams`, `connection()`) must be either inside `'use cache'` or under a `<Suspense>` boundary. Otherwise `next build` fails with an "uncached data outside of Suspense" error. Fix it by choosing one of the two — don't remove `cacheComponents`.
+Dynamic data (uncached I/O, `cookies()`, `headers()`, `params`, `searchParams`, `connection()`) must be either inside `'use cache'` or under a `<Suspense>` boundary (`loading.tsx` counts). Otherwise `next build` fails with "Next.js encountered uncached or runtime data during prerendering". Fix it by choosing one of the two — don't remove `cacheComponents`.
+
+- **Dynamic routes (`[slug]`):** `generateStaticParams` returning at least one param (an empty array is a build error), or `await params` under `<Suspense>`. Unlisted params still render at request time. `dynamicParams` is not supported: delete it and call `notFound()` for unknown params.
+- **A layout that reads cookies at the top** breaks every route below it. Move the read into a small component under `<Suspense>` (`server-components.md`).
+- **`new Date()`, `Date.now()`, `Math.random()`, `crypto.randomUUID()`** in the shell also fail the build. Put them under `<Suspense>` after `await connection()`, or in a Client Component.
+- **Migrating an existing app:** `export const instant = false` on a segment lets it block while you convert routes one at a time (codemod `cache-components-instant-false` adds it everywhere). It doesn't make a route dynamic and doesn't clear the `Date.now()` errors above.
+- `notFound()` after streaming started (inside `<Suspense>`) keeps status 200 with a `noindex` tag. For a real 404, call it before any Suspense boundary.
 
 ```tsx
 // app/dashboard/page.tsx
@@ -74,10 +80,15 @@ async function Announcements() {
 
 ### Request-time without data
 
-```ts
+```tsx
+import { Suspense } from 'react'
 import { connection } from 'next/server'
 
-export default async function Page() {
+export default function Page() {
+  return <Suspense fallback={null}><Flag /></Suspense> // connection() outside Suspense fails the build
+}
+
+async function Flag() {
   await connection()             // opt into request time (e.g. read process.env at runtime, Date.now())
   return <p>{process.env.FEATURE_FLAG}</p>
 }
